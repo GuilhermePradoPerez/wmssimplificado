@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WMS Simplificado — Gerenciamento de Armazém</title>
+  <meta name="description" content="Sistema de gerenciamento de armazém com mapa visual de 150 posições, entrada (putaway), saída (picking), busca e indicadores em tempo real." />
+  <meta property="og:title" content="WMS Simplificado" />
+  <meta property="og:description" content="Sistema de gerenciamento de armazém com mapa visual de 150 posições, entrada (putaway), saída (picking), busca e indicadores em tempo real." />
+  <meta property="og:type" content="website" />
+  <style>
+    /* ==========================================================================
+       Variáveis de design, paleta neutra industrial e cores semânticas
+       ========================================================================== */
+    :root {
+      --cor-fundo: #f4f6f9;
+      --cor-superficie: #ffffff;
+      --cor-superficie-suave: #f8fafc;
+      --cor-borda: #dde3ea;
+      --cor-borda-forte: #cbd5e1;
+
+      --cor-texto-principal: #0f172a;
+      --cor-texto-secundario: #475569;
+      --cor-texto-suave: #64748b;
+
+      --cor-primaria: #1d4ed8;
+      --cor-primaria-hover: #1e40af;
+      --cor-primaria-suave: #eff6ff;
+
+      /* Cores semânticas obrigatórias para os status do mapa */
+      --cor-livre-bg: #dcfce7;
+      --cor-livre-borda: #16a34a;
+      --cor-livre-texto: #14532d;
+      --cor-livre-solido: #16a34a;
+
+      --cor-ocupado-bg: #fee2e2;
+      --cor-ocupado-borda: #dc2626;
+      --cor-ocupado-texto: #7f1d1d;
+      --cor-ocupado-solido: #dc2626;
+
+      --cor-indisp-bg: #e2e8f0;
+      --cor-indisp-borda: #64748b;
+      --cor-indisp-texto: #334155;
+      --cor-indisp-solido: #64748b;
+
+      --cor-destaque-busca: #2563eb;
+      --cor-selecionado: #0f172a;
+
+      --cor-alerta-bg: #fef2f2;
+      --cor-alerta-borda: #fecaca;
+      --cor-alerta-texto: #991b1b;
+
+      --cor-sucesso-bg: #f0fdf4;
+      --cor-sucesso-borda: #bbf7d0;
+      --cor-sucesso-texto: #166534;
+
+      --raio-grande: 10px;
+      --raio-medio: 7px;
+      --raio-pequeno: 5px;
+
+      --fonte-principal: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --fonte-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--fonte-principal);
+      background-color: var(--cor-fundo);
+      color: var(--cor-texto-principal);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mono {
+      font-family: var(--fonte-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    button, input, select {
+      font-family: inherit;
+      font-size: inherit;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--cor-primaria);
+      outline-offset: 2px;
+    }
+
+    /* ==========================================================================
+       Cabeçalho Principal (Top Bar de 3 zonas)
+       ========================================================================== */
+    .cabecalho {
+      background-color: var(--cor-superficie);
+      border-bottom: 1px solid var(--cor-borda);
+      position: sticky;
+      top: 0;
+      z-index: 30;
+    }
+
+    .cabecalho-interno {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .marca {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--cor-texto-principal);
+      white-space: nowrap;
+      flex-shrink: 0;
+      text-decoration: none;
+    }
+
+    .navegacao {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .nav-link {
+      color: var(--cor-texto-secundario);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 13px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      padding: 4px 0;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .nav-link:hover {
+      color: var(--cor-texto-principal);
+      border-bottom-color: var(--cor-borda-forte);
+    }
+
+    .cabecalho-acao {
+      flex-shrink: 0;
+    }
+
+    /* ==========================================================================
+       Botões Padrão
+       ========================================================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 16px;
+      min-height: 40px;
+      border-radius: var(--raio-medio);
+      border: 1px solid transparent;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-primario {
+      background-color: var(--cor-primaria);
+      color: #ffffff;
+    }
+
+    .btn-primario:hover:not(:disabled) {
+      background-color: var(--cor-primaria-hover);
+    }
+
+    .btn-secundario {
+      background-color: var(--cor-superficie);
+      border-color: var(--cor-borda-forte);
+      color: var(--cor-texto-principal);
+    }
+
+    .btn-secundario:hover:not(:disabled) {
+      background-color: var(--cor-superficie-suave);
+    }
+
+    .btn-perigo {
+      background-color: var(--cor-ocupado-solido);
+      color: #ffffff;
+    }
+
+    .btn-perigo:hover:not(:disabled) {
+      background-color: #b91c1c;
+    }
+
+    .btn-sucesso {
+      background-color: var(--cor-livre-solido);
+      color: #ffffff;
+    }
+
+    .btn-sucesso:hover:not(:disabled) {
+      background-color: #15803d;
+    }
+
+    .btn-pequeno {
+      padding: 6px 12px;
+      min-height: 34px;
+      font-size: 12px;
+    }
+
+    /* ==========================================================================
+       Container Principal e Dashboard
+       ========================================================================== */
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 20px 24px 40px;
+    }
+
+    .painel-dashboard {
+      background-color: var(--cor-superficie);
+      border: 1px solid var(--cor-borda);
+      border-radius: var(--raio-grande);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+
+    .dashboard-cabecalho {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .secao-titulo {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--cor-texto-principal);
+      letter-spacing: -0.01em;
+    }
+
+    .secao-subtitulo {
+      margin: 0;
+      font-size: 13px;
+      color: var(--cor-texto-suave);
+    }
+
+    .kpi-grade {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr 1fr;
+      gap: 0;
+      border-top: 1px solid var(--cor-borda);
+      border-bottom: 1px solid var(--cor-borda);
+    }
+
+    .kpi-item {
+      padding: 16px 20px 16px 0;
+      border-right: 1px solid var(--cor-borda);
+    }
+
+    .kpi-item + .kpi-item {
+      padding-left: 20px;
+    }
+
+    .kpi-item:last-child {
+      border-right: none;
+      padding-right: 0;
+    }
+
+    .kpi-rotulo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--cor-texto-secundario);
+      margin-bottom: 6px;
+    }
+
+    .indicador-quadrado {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .indicador-livre { background-color: var(--cor-livre-solido); }
+    .indicador-ocupado { background-color: var(--cor-ocupado-solido); }
+    .indicador-indisp { background-color: var(--cor-indisp-solido); }
+    .indicador-busca { background-color: var(--cor-destaque-busca); }
+
+    .kpi-valor-linha {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .kpi-valor {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.15;
+      color: var(--cor-texto-principal);
+      letter-spacing: -0.02em;
+    }
+
+    .kpi-detalhe {
+      font-size: 12px;
+      color: var(--cor-texto-suave);
+    }
+
+    .progresso-container {
+      margin-top: 14px;
+    }
+
+    .progresso-topo {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--cor-texto-secundario);
+      margin-bottom: 6px;
+    }
+
+    .progresso-trilha {
+      width: 100%;
+      height: 12px;
+      background-color: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .progresso-ocupado {
+      height: 100%;
+      background-color: var(--cor-ocupado-solido);
+      transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .progresso-indisp {
+      height: 100%;
+      background-color: var(--cor-indisp-solido);
+      transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* ==========================================================================
+       Layout Principal em 2 Colunas (Mapa à esquerda, Operações à direita)
+       ========================================================================== */
+    .layout-principal {
+      display: grid;
+      grid-template-columns: minmax(0, 1.55fr) minmax(360px, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .coluna-operacoes {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .painel {
+      background-color: var(--cor-superficie);
+      border: 1px solid var(--cor-borda);
+      border-radius: var(--raio-grande);
+      padding: 20px;
+    }
+
+    .painel-cabecalho {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    /* ==========================================================================
+       Legenda Sempre Visível e Filtro de Ruas
+       ========================================================================== */
+    .legenda-barra {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 18px;
+      padding: 10px 14px;
+      background-color: var(--cor-superficie-suave);
+      border: 1px solid var(--cor-borda);
+      border-radius: var(--raio-medio);
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: var(--cor-texto-secundario);
+    }
+
+    .legenda-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-weight: 500;
+    }
+
+    .legenda-amostra {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1.5px solid transparent;
+      flex-shrink: 0;
+    }
+
+    .amostra-livre {
+      background-color: var(--cor-livre-bg);
+      border-color: var(--cor-livre-borda);
+    }
+
+    .amostra-ocupado {
+      background-color: var(--cor-ocupado-bg);
+      border-color: var(--cor-ocupado-borda);
+    }
+
+    .amostra-indisp {
+      background-color: var(--cor-indisp-bg);
+      border-color: var(--cor-indisp-borda);
+    }
+
+    .amostra-busca {
+      background-color: var(--cor-primaria-suave);
+      border-color: var(--cor-destaque-busca);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+    }
+
+    .filtro-ruas {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      background-color: var(--cor-superficie-suave);
+      padding: 4px;
+      border-radius: var(--raio-medio);
+      border: 1px solid var(--cor-borda);
+    }
+
+    .btn-filtro-rua {
+      background: transparent;
+      border: none;
+      padding: 5px 10px;
+      border-radius: var(--raio-pequeno);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--cor-texto-secundario);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .btn-filtro-rua:hover {
+      color: var(--cor-texto-principal);
+    }
+
+    .btn-filtro-rua.ativo {
+      background-color: var(--cor-superficie);
+      color: var(--cor-texto-principal);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+
+    /* ==========================================================================
+       Mapa Visual do Armazém (6 Ruas x 5 Módulos x 5 Níveis = 150 Posições)
+       ========================================================================== */
+    .mapa-grade-ruas {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .mapa-grade-ruas.rua-unica {
+      grid-template-columns: 1fr;
+    }
+
+    .bloco-rua {
+      border: 1px solid var(--cor-borda);
+      border-radius: var(--raio-medio);
+      background-color: var(--cor-superficie-suave);
+      padding: 12px;
+    }
+
+    .rua-cabecalho {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--cor-borda);
+    }
+
+    .rua-nome {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--cor-texto-principal);
+    }
+
+    .rua-resumo {
+      font-size: 12px;
+      color: var(--cor-texto-suave);
+    }
+
+    .rua-modulos {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .coluna-modulo {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .modulo-titulo {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--cor-texto-secundario);
+      padding-bottom: 2px;
+    }
+
+    .posicao-btn {
+      width: 100%;
+      min-height: 40px;
+      padding: 4px 3px;
+      border-radius: var(--raio-pequeno);
+      border: 1.5px solid transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+
+    .posicao-btn:hover {
+      transform: translateY(-1px);
+      z-index: 2;
+    }
+
+    .posicao-livre {
+      background-color: var(--cor-livre-bg);
+      border-color: var(--cor-livre-borda);
+      color: var(--cor-livre-texto);
+    }
+
+    .posicao-ocupado {
+      background-color: var(--cor-ocupado-bg);
+      border-color: var(--cor-ocupado-borda);
+      color: var(--cor-ocupado-texto);
+    }
+
+    .posicao-indisponivel {
+      background-color: var(--cor-indisp-bg);
+      border-color: var(--cor-indisp-borda);
+      color: var(--cor-indisp-texto);
+      background-image: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 5px,
+        rgba(100, 116, 139, 0.12) 5px,
+        rgba(100, 116, 139, 0.12) 10px
+      );
+    }
+
+    .posicao-selecionada {
+      box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--cor-selecionado);
+      z-index: 3;
+    }
+
+    .posicao-destacada {
+      box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--cor-destaque-busca);
+      z-index: 4;
+    }
+
+    .posicao-selecionada.posicao-destacada {
+      box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--cor-destaque-busca), 0 0 0 6px var(--cor-selecionado);
+    }
+
+    .posicao-nivel {
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .posicao-sigla {
+      font-size: 9.5px;
+      font-weight: 600;
+      line-height: 1.1;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      opacity: 0.92;
+    }
+
+    .eixo-referencia {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--cor-texto-suave);
+    }
+
+    /* ==========================================================================
+       Detalhes da Posição Selecionada
+       ========================================================================== */
+    .detalhe-vazio {
+      padding: 16px;
+      background-color: var(--cor-superficie-suave);
+      border: 1px dashed var(--cor-borda-forte);
+      border-radius: var(--raio-medio);
+      color: var(--cor-texto-secundario);
+      font-size: 13px;
+    }
+
+    .detalhe-endereco {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--cor-texto-principal);
+      margin-bottom: 10px;
+      word-break: break-word;
+    }
+
+    .detalhe-lista {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 6px 14px;
+      margin: 0 0 14px 0;
+      font-size: 13px;
+    }
+
+    .detalhe-lista dt {
+      color: var(--cor-texto-suave);
+      font-weight: 500;
+    }
+
+    .detalhe-lista dd {
+      margin: 0;
+      color: var(--cor-texto-principal);
+      font-weight: 600;
+      word-break: break-word;
+    }
+
+    .status-texto-livre { color: #15803d; }
+    .status-texto-ocupado { color: #b91c1c; }
+    .status-texto-indisponivel { color: #475569; }
+
+    .detalhe-acoes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* ==========================================================================
+       Consulta e Busca
+       ========================================================================== */
+    .busca-form {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .campo-entrada, .campo-selecao {
+      width: 100%;
+      min-height: 40px;
+      padding: 8px 12px;
+      border: 1px solid var(--cor-borda-forte);
+      border-radius: var(--raio-medio);
+      background-color: var(--cor-superficie);
+      color: var(--cor-texto-principal);
+      font-size: 13px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .campo-entrada:focus, .campo-selecao:focus {
+      border-color: var(--cor-primaria);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12);
+    }
+
+    .resultados-lista {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 230px;
+      overflow-y: auto;
+    }
+
+    .resultado-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      background-color: var(--cor-superficie-suave);
+      border: 1px solid var(--cor-borda);
+      border-radius: var(--raio-medio);
+    }
+
+    .resultado-info {
+      min-width: 0;
+    }
+
+    .resultado-produto {
+      font-weight: 600;
+      color: var(--cor-texto-principal);
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .resultado-meta {
+      font-size: 12px;
+      color: var(--cor-texto-secundario);
+      margin-top: 2px;
+    }
+
+    /* ==========================================================================
+       Abas de Operação (Entrada / Saída)
+       ========================================================================== */
+    .abas-barra {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      background-color: var(--cor-superficie-suave);
+      border: 1px solid var(--cor-borda);
+      border-radius: var(--raio-medio);
+      padding: 4px;
+      margin-bottom: 16px;
+    }
+
+    .aba-btn {
+      min-height: 36px;
+      border: none;
+      background: transparent;
+      border-radius: var(--raio-pequeno);
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--cor-texto-secundario);
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .aba-btn.ativa {
+      background-color: var(--cor-superficie);
+      color: var(--cor-texto-principal);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+
+    .campo-grupo {
+      margin-bottom: 12px;
+    }
+
+    .campo-rotulo {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--cor-texto-secundario);
+      margin-bottom: 5px;
+    }
+
+    .grade-destino {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .grade-campos-dupla {
+      display: grid;
+      grid-template-columns: 1fr 110px;
+      gap: 10px;
+    }
+
+    .status-destino-aviso {
+      padding: 9px 12px;
+      border-radius: var(--raio-medio);
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 12px;
+      border: 1px solid transparent;
+    }
+
+    .aviso-livre {
+      background-color: var(--cor-sucesso-bg);
+      border-color: var(--cor-sucesso-borda);
+      color: var(--cor-sucesso-texto);
+    }
+
+    .aviso-bloqueado {
+      background-color: var(--cor-alerta-bg);
+      border-color: var(--cor-alerta-borda);
+      color: var(--cor-alerta-texto);
+    }
+
+    .mensagem-feedback {
+      padding: 10px 12px;
+      border-radius: var(--raio-medio);
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 12px;
+      border: 1px solid transparent;
+    }
+
+    .mensagem-feedback.oculto {
+      display: none;
+    }
+
+    .mensagem-erro {
+      background-color: var(--cor-alerta-bg);
+      border-color: var(--cor-alerta-borda);
+      color: var(--cor-alerta-texto);
+    }
+
+    .mensagem-sucesso {
+      background-color: var(--cor-sucesso-bg);
+      border-color: var(--cor-sucesso-borda);
+      color: var(--cor-sucesso-texto);
+    }
+
+    /* Lista de Picking (Saída) */
+    .picking-lista {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    .picking-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      background-color: var(--cor-superficie-suave);
+      border: 1px solid var(--cor-borda);
+      border-radius: var(--raio-medio);
+    }
+
+    .picking-dados {
+      min-width: 0;
+    }
+
+    .picking-endereco {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cor-texto-principal);
+    }
+
+    .picking-produto {
+      font-size: 13px;
+      color: var(--cor-texto-secundario);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    /* ==========================================================================
+       Modal de Confirmação Acessível
+       ========================================================================== */
+    .modal-fundo {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(15, 23, 42, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 60;
+    }
+
+    .modal-fundo.oculto {
+      display: none;
+    }
+
+    .modal-caixa {
+      background-color: var(--cor-superficie);
+      border: 1px solid var(--cor-borda);
+      border-radius: var(--raio-grande);
+      max-width: 440px;
+      width: 100%;
+      padding: 22px;
+      box-shadow: 0 20px 30px rgba(15, 23, 42, 0.2);
+    }
+
+    .modal-titulo {
+      margin: 0 0 8px 0;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--cor-texto-principal);
+    }
+
+    .modal-texto {
+      margin: 0 0 14px 0;
+      font-size: 13px;
+      color: var(--cor-texto-secundario);
+    }
+
+    .modal-resumo {
+      background-color: var(--cor-superficie-suave);
+      border: 1px solid var(--cor-borda);
+      border-radius: var(--raio-medio);
+      padding: 12px;
+      margin-bottom: 18px;
+      font-size: 13px;
+    }
+
+    .modal-acoes {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* ==========================================================================
+       Rodapé
+       ========================================================================== */
+    .rodape {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 0 24px 28px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--cor-texto-suave);
+    }
+
+    /* ==========================================================================
+       Responsividade (Tablet e Mobile)
+       ========================================================================== */
+    @media (max-width: 1120px) {
+      .layout-principal {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 820px) {
+      .cabecalho-interno {
+        padding: 10px 16px;
+        gap: 12px;
+      }
+
+      .navegacao {
+        display: none;
+      }
+
+      .container {
+        padding: 16px 16px 32px;
+      }
+
+      .kpi-grade {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .kpi-item {
+        padding: 14px 12px;
+        border-right: 1px solid var(--cor-borda);
+        border-bottom: 1px solid var(--cor-borda);
+      }
+
+      .kpi-item:nth-child(2n) {
+        border-right: none;
+      }
+
+      .kpi-item:nth-child(n+3) {
+        border-bottom: none;
+      }
+
+      .kpi-item:first-child {
+        padding-left: 0;
+      }
+
+      .kpi-item:nth-child(3) {
+        padding-left: 0;
+      }
+
+      .mapa-grade-ruas {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .grade-destino,
+      .grade-campos-dupla {
+        grid-template-columns: 1fr;
+      }
+
+      .posicao-btn {
+        min-height: 44px;
+      }
+
+      .btn {
+        min-height: 44px;
+      }
+
+      .rodape {
+        padding: 0 16px 24px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition: none !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Cabeçalho de 3 zonas: Marca, Navegação de seção e Ação principal -->
+  <header class="cabecalho">
+    <div class="cabecalho-interno">
+      <a href="#topo" class="marca">WMS Simplificado</a>
+      <nav class="navegacao" aria-label="Navegação principal">
+        <a href="#secao-indicadores" class="nav-link">Indicadores</a>
+        <a href="#secao-mapa" class="nav-link">Mapa Visual</a>
+        <a href="#secao-busca" class="nav-link">Consulta</a>
+        <a href="#secao-operacoes" class="nav-link">Operações</a>
+      </nav>
+      <div class="cabecalho-acao">
+        <button type="button" id="btn-atalho-entrada" class="btn btn-primario btn-pequeno">Nova Entrada</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="topo" class="container">
+    <!-- 1. Dashboard de Indicadores -->
+    <section id="secao-indicadores" class="painel-dashboard" aria-labelledby="titulo-dashboard">
+      <div class="dashboard-cabecalho">
+        <h1 id="titulo-dashboard" class="secao-titulo">Painel de Ocupação do Armazém</h1>
+        <p class="secao-subtitulo tabular-nums">Capacidade fixa: 6 ruas · 30 módulos · 150 posições de palete</p>
+      </div>
+
+      <div class="kpi-grade">
+        <div class="kpi-item">
+          <div class="kpi-rotulo">Taxa de Ocupação</div>
+          <div class="kpi-valor-linha">
+            <span id="kpi-percentual" class="kpi-valor tabular-nums">0,0%</span>
+            <span id="kpi-ocupacao-fracao" class="kpi-detalhe tabular-nums">0 de 150</span>
+          </div>
+        </div>
+
+        <div class="kpi-item">
+          <div class="kpi-rotulo">
+            <span class="indicador-quadrado indicador-livre" aria-hidden="true"></span>
+            <span>Posições Livres</span>
+          </div>
+          <div class="kpi-valor-linha">
+            <span id="kpi-livres" class="kpi-valor tabular-nums">150</span>
+            <span class="kpi-detalhe">disponíveis</span>
+          </div>
+        </div>
+
+        <div class="kpi-item">
+          <div class="kpi-rotulo">
+            <span class="indicador-quadrado indicador-ocupado" aria-hidden="true"></span>
+            <span>Posições Ocupadas</span>
+          </div>
+          <div class="kpi-valor-linha">
+            <span id="kpi-ocupadas" class="kpi-valor tabular-nums">0</span>
+            <span class="kpi-detalhe">com estoque</span>
+          </div>
+        </div>
+
+        <div class="kpi-item">
+          <div class="kpi-rotulo">
+            <span class="indicador-quadrado indicador-indisp" aria-hidden="true"></span>
+            <span>Posições Indisponíveis</span>
+          </div>
+          <div class="kpi-valor-linha">
+            <span id="kpi-indisponiveis" class="kpi-valor tabular-nums">0</span>
+            <span class="kpi-detalhe">bloqueadas</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="progresso-container">
+        <div class="progresso-topo">
+          <span>Progresso visual da ocupação (sobre 150 posições)</span>
+          <span id="progresso-legenda" class="tabular-nums">0% ocupado · 0% indisponível · 100% livre</span>
+        </div>
+        <div class="progresso-trilha" role="progressbar" aria-label="Percentual de ocupação do armazém" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="barra-progresso-trilha">
+          <div id="barra-ocupado" class="progresso-ocupado" style="width: 0%;"></div>
+          <div id="barra-indisponivel" class="progresso-indisp" style="width: 0%;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Área Principal: Mapa à esquerda + Operações, Detalhes e Busca à direita -->
+    <div class="layout-principal">
+      <!-- 2. Mapa Visual do Armazém -->
+      <section id="secao-mapa" class="painel" aria-labelledby="titulo-mapa">
+        <div class="painel-cabecalho">
+          <div>
+            <h2 id="titulo-mapa" class="secao-titulo">Mapa Visual do Armazém</h2>
+            <p class="secao-subtitulo">Clique em qualquer posição para consultar detalhes ou alterar disponibilidade</p>
+          </div>
+          <div id="filtro-ruas" class="filtro-ruas" role="group" aria-label="Filtrar visualização por rua">
+            <button type="button" class="btn-filtro-rua ativo" data-rua="TODAS">Todas</button>
+            <button type="button" class="btn-filtro-rua" data-rua="A">Rua A</button>
+            <button type="button" class="btn-filtro-rua" data-rua="B">Rua B</button>
+            <button type="button" class="btn-filtro-rua" data-rua="C">Rua C</button>
+            <button type="button" class="btn-filtro-rua" data-rua="D">Rua D</button>
+            <button type="button" class="btn-filtro-rua" data-rua="E">Rua E</button>
+            <button type="button" class="btn-filtro-rua" data-rua="F">Rua F</button>
+          </div>
+        </div>
+
+        <!-- Legenda de cores sempre visível -->
+        <div class="legenda-barra" aria-label="Legenda de cores do mapa">
+          <span class="legenda-item">
+            <span class="legenda-amostra amostra-livre" aria-hidden="true"></span>
+            <span>Livre (Verde)</span>
+          </span>
+          <span class="legenda-item">
+            <span class="legenda-amostra amostra-ocupado" aria-hidden="true"></span>
+            <span>Ocupado (Vermelho)</span>
+          </span>
+          <span class="legenda-item">
+            <span class="legenda-amostra amostra-indisp" aria-hidden="true"></span>
+            <span>Indisponível (Cinza)</span>
+          </span>
+          <span class="legenda-item">
+            <span class="legenda-amostra amostra-busca" aria-hidden="true"></span>
+            <span>Destaque da Busca</span>
+          </span>
+        </div>
+
+        <div id="mapa-container" class="mapa-grade-ruas" role="region" aria-label="Grade de posições do armazém"></div>
+
+        <div class="eixo-referencia">
+          <span>Orientação vertical por módulo: N5 (Topo) acima até N1 (Piso) abaixo</span>
+          <span id="mapa-contador-exibidas" class="tabular-nums">Exibindo 150 de 150 posições</span>
+        </div>
+      </section>
+
+      <!-- Coluna Lateral: Detalhes da Posição, Busca e Formulários de Entrada/Saída -->
+      <div class="coluna-operacoes">
+        <!-- Detalhes da Posição Selecionada -->
+        <section class="painel" aria-labelledby="titulo-detalhe">
+          <div class="painel-cabecalho">
+            <h2 id="titulo-detalhe" class="secao-titulo">Posição Selecionada</h2>
+          </div>
+          <div id="painel-detalhe-conteudo">
+            <div class="detalhe-vazio">
+              Selecione uma posição no mapa para visualizar endereço completo, status, produto armazenado e opções de bloqueio/desbloqueio.
+            </div>
+          </div>
+          <div id="feedback-detalhe" class="mensagem-feedback oculto" role="status" aria-live="polite" style="margin-top: 12px; margin-bottom: 0;"></div>
+        </section>
+
+        <!-- 5. Consulta e Busca -->
+        <section id="secao-busca" class="painel" aria-labelledby="titulo-busca">
+          <div class="painel-cabecalho">
+            <div>
+              <h2 id="titulo-busca" class="secao-titulo">Consulta e Busca de Produtos</h2>
+              <p class="secao-subtitulo">Localize por SKU ou nome e destaque no mapa</p>
+            </div>
+          </div>
+          <form id="form-busca" class="busca-form" novalidate>
+            <label for="input-busca" class="oculto" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Buscar por SKU ou nome do produto</label>
+            <input
+              type="search"
+              id="input-busca"
+              class="campo-entrada"
+              placeholder="Digite SKU ou nome do produto..."
+              autocomplete="off"
+            />
+            <button type="button" id="btn-limpar-busca" class="btn btn-secundario btn-pequeno">Limpar</button>
+          </form>
+          <div id="busca-resumo" class="secao-subtitulo" style="margin-bottom: 8px;"></div>
+          <div id="busca-resultados" class="resultados-lista"></div>
+        </section>
+
+        <!-- 2 e 3. Entrada (Putaway) e Saída (Picking) -->
+        <section id="secao-operacoes" class="painel" aria-labelledby="titulo-operacoes">
+          <h2 id="titulo-operacoes" class="secao-titulo" style="margin-bottom: 12px;">Movimentação de Mercadorias</h2>
+
+          <div class="abas-barra" role="tablist" aria-label="Tipo de movimentação">
+            <button type="button" id="aba-entrada" class="aba-btn ativa" role="tab" aria-selected="true" aria-controls="painel-entrada">Entrada (Putaway)</button>
+            <button type="button" id="aba-saida" class="aba-btn" role="tab" aria-selected="false" aria-controls="painel-saida">Saída (Picking)</button>
+          </div>
+
+          <!-- Formulário de Entrada -->
+          <div id="painel-entrada" role="tabpanel" aria-labelledby="aba-entrada">
+            <form id="form-entrada" novalidate>
+              <div class="grade-campos-dupla">
+                <div class="campo-grupo">
+                  <label for="entrada-sku" class="campo-rotulo">Código / SKU</label>
+                  <input type="text" id="entrada-sku" class="campo-entrada" placeholder="Ex.: PAL-4020" maxlength="40" required />
+                </div>
+                <div class="campo-grupo">
+                  <label for="entrada-quantidade" class="campo-rotulo">Quantidade</label>
+                  <input type="number" id="entrada-quantidade" class="campo-entrada tabular-nums" placeholder="Ex.: 24" min="1" step="1" inputmode="numeric" required />
+                </div>
+              </div>
+
+              <div class="campo-grupo">
+                <label for="entrada-nome" class="campo-rotulo">Nome do Produto</label>
+                <input type="text" id="entrada-nome" class="campo-entrada" placeholder="Ex.: Caixa Papelão Reforçada 40x30" maxlength="80" required />
+              </div>
+
+              <div class="campo-grupo">
+                <span class="campo-rotulo">Endereço de Destino</span>
+                <div class="grade-destino">
+                  <div>
+                    <label for="entrada-rua" class="campo-rotulo" style="font-weight: 500;">Rua</label>
+                    <select id="entrada-rua" class="campo-selecao"></select>
+                  </div>
+                  <div>
+                    <label for="entrada-modulo" class="campo-rotulo" style="font-weight: 500;">Módulo</label>
+                    <select id="entrada-modulo" class="campo-selecao"></select>
+                  </div>
+                  <div>
+                    <label for="entrada-nivel" class="campo-rotulo" style="font-weight: 500;">Nível</label>
+                    <select id="entrada-nivel" class="campo-selecao"></select>
+                  </div>
+                </div>
+              </div>
+
+              <div id="aviso-destino-entrada" class="status-destino-aviso aviso-livre"></div>
+              <div id="feedback-entrada" class="mensagem-feedback oculto" role="alert" aria-live="assertive"></div>
+
+              <button type="submit" id="btn-registrar-entrada" class="btn btn-primario" style="width: 100%;">Registrar Entrada</button>
+            </form>
+          </div>
+
+          <!-- Painel de Saída (Picking) -->
+          <div id="painel-saida" role="tabpanel" aria-labelledby="aba-saida" hidden>
+            <div class="campo-grupo">
+              <label for="filtro-saida" class="campo-rotulo">Filtrar posições ocupadas</label>
+              <input type="search" id="filtro-saida" class="campo-entrada" placeholder="Filtrar por endereço, SKU ou nome..." autocomplete="off" />
+            </div>
+            <div id="feedback-saida" class="mensagem-feedback oculto" role="status" aria-live="polite"></div>
+            <div id="lista-saida" class="picking-lista"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="rodape">
+    <span>WMS Simplificado · Persistência local automática no navegador</span>
+    <button type="button" id="btn-reiniciar-armazem" class="btn btn-secundario btn-pequeno">Reiniciar Armazém (Zerar Posições)</button>
+  </footer>
+
+  <!-- Modal de Confirmação (para Saída/Picking e Reinicialização) -->
+  <div id="modal-confirmacao" class="modal-fundo oculto" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+    <div class="modal-caixa">
+      <h3 id="modal-titulo" class="modal-titulo">Confirmar Operação</h3>
+      <p id="modal-texto" class="modal-texto"></p>
+      <div id="modal-resumo" class="modal-resumo"></div>
+      <div class="modal-acoes">
+        <button type="button" id="modal-btn-cancelar" class="btn btn-secundario">Cancelar</button>
+        <button type="button" id="modal-btn-confirmar" class="btn btn-perigo">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      /* ========================================================================
+         Constantes Estruturais Obrigatórias do Armazém (150 posições)
+         ======================================================================== */
+      var RUAS = ["A", "B", "C", "D", "E", "F"];
+      var MODULOS = ["P01", "P02", "P03", "P04", "P05"];
+      var NIVEIS = [1, 2, 3, 4, 5]; // N1 é o piso, N5 é o topo
+      var TOTAL_POSICOES_ESPERADO = 150;
+      var CHAVE_STORAGE = "wms_simplificado_posicoes_v1";
+      var STATUS_VALIDOS = ["livre", "ocupado", "indisponivel"];
+
+      /* ========================================================================
+         Estado da Aplicação em Memória
+         ======================================================================== */
+      var estado = {
+        posicoes: [],
+        selecionadaChave: null,
+        ruaFiltroMapa: "TODAS",
+        termoBusca: "",
+        termoFiltroSaida: "",
+        abaAtiva: "entrada",
+        acaoModalPendente: null
+      };
+
+      /* ========================================================================
+         Referências de Elementos do DOM
+         ======================================================================== */
+      var el = {
+        kpiPercentual: document.getElementById("kpi-percentual"),
+        kpiOcupacaoFracao: document.getElementById("kpi-ocupacao-fracao"),
+        kpiLivres: document.getElementById("kpi-livres"),
+        kpiOcupadas: document.getElementById("kpi-ocupadas"),
+        kpiIndisponiveis: document.getElementById("kpi-indisponiveis"),
+        progressoLegenda: document.getElementById("progresso-legenda"),
+        barraTrilha: document.getElementById("barra-progresso-trilha"),
+        barraOcupado: document.getElementById("barra-ocupado"),
+        barraIndisponivel: document.getElementById("barra-indisponivel"),
+
+        filtroRuas: document.getElementById("filtro-ruas"),
+        mapaContainer: document.getElementById("mapa-container"),
+        mapaContadorExibidas: document.getElementById("mapa-contador-exibidas"),
+
+        painelDetalheConteudo: document.getElementById("painel-detalhe-conteudo"),
+        feedbackDetalhe: document.getElementById("feedback-detalhe"),
+
+        formBusca: document.getElementById("form-busca"),
+        inputBusca: document.getElementById("input-busca"),
+        btnLimparBusca: document.getElementById("btn-limpar-busca"),
+        buscaResumo: document.getElementById("busca-resumo"),
+        buscaResultados: document.getElementById("busca-resultados"),
+
+        abaEntrada: document.getElementById("aba-entrada"),
+        abaSaida: document.getElementById("aba-saida"),
+        painelEntrada: document.getElementById("painel-entrada"),
+        painelSaida: document.getElementById("painel-saida"),
+        btnAtalhoEntrada: document.getElementById("btn-atalho-entrada"),
+
+        formEntrada: document.getElementById("form-entrada"),
+        entradaSku: document.getElementById("entrada-sku"),
+        entradaNome: document.getElementById("entrada-nome"),
+        entradaQuantidade: document.getElementById("entrada-quantidade"),
+        entradaRua: document.getElementById("entrada-rua"),
+        entradaModulo: document.getElementById("entrada-modulo"),
+        entradaNivel: document.getElementById("entrada-nivel"),
+        avisoDestinoEntrada: document.getElementById("aviso-destino-entrada"),
+        feedbackEntrada: document.getElementById("feedback-entrada"),
+
+        filtroSaida: document.getElementById("filtro-saida"),
+        feedbackSaida: document.getElementById("feedback-saida"),
+        listaSaida: document.getElementById("lista-saida"),
+
+        btnReiniciarArmazem: document.getElementById("btn-reiniciar-armazem"),
+
+        modalFundo: document.getElementById("modal-confirmacao"),
+        modalTitulo: document.getElementById("modal-titulo"),
+        modalTexto: document.getElementById("modal-texto"),
+        modalResumo: document.getElementById("modal-resumo"),
+        modalBtnCancelar: document.getElementById("modal-btn-cancelar"),
+        modalBtnConfirmar: document.getElementById("modal-btn-confirmar")
+      };
+
+      /* ========================================================================
+         Funções Utilitárias de Endereçamento e Formatação
+         ======================================================================== */
+      function gerarChavePosicao(rua, modulo, nivel) {
+        return rua + "-" + modulo + "-" + String(nivel);
+      }
+
+      function formatarEndereco(posicao) {
+        var numeroModulo = posicao.modulo.replace("P", "");
+        return "RUA-" + posicao.rua + " / MOD-" + numeroModulo + " / NIVEL-" + String(posicao.nivel);
+      }
+
+      function formatarStatusRotulo(status) {
+        if (status === "livre") return "Livre";
+        if (status === "ocupado") return "Ocupado";
+        if (status === "indisponivel") return "Indisponível";
+        return status;
+      }
+
+      function formatarNumeroPercentual(valor) {
+        return valor.toFixed(1).replace(".", ",") + "%";
+      }
+
+      function criarElementoTexto(tag, classe, texto) {
+        var nodo = document.createElement(tag);
+        if (classe) {
+          nodo.className = classe;
+        }
+        if (texto !== undefined && texto !== null) {
+          nodo.textContent = String(texto);
+        }
+        return nodo;
+      }
+
+      /* ========================================================================
+         Inicialização, Validação Estrutural e Persistência (localStorage)
+         ======================================================================== */
+      function criarPosicoesIniciais() {
+        var lista = [];
+        for (var r = 0; r < RUAS.length; r++) {
+          for (var m = 0; m < MODULOS.length; m++) {
+            for (var n = 0; n < NIVEIS.length; n++) {
+              lista.push({
+                rua: RUAS[r],
+                modulo: MODULOS[m],
+                nivel: NIVEIS[n],
+                status: "livre",
+                produto: null
+              });
+            }
+          }
+        }
+        return lista;
+      }
+
+      function validarListaPosicoes(dados) {
+        if (!Array.isArray(dados) || dados.length !== TOTAL_POSICOES_ESPERADO) {
+          return false;
+        }
+
+        var chavesVistas = {};
+        for (var i = 0; i < dados.length; i++) {
+          var item = dados[i];
+          if (!item || typeof item !== "object") return false;
+          if (RUAS.indexOf(item.rua) === -1) return false;
+          if (MODULOS.indexOf(item.modulo) === -1) return false;
+          if (NIVEIS.indexOf(item.nivel) === -1) return false;
+          if (STATUS_VALIDOS.indexOf(item.status) === -1) return false;
+
+          var chave = gerarChavePosicao(item.rua, item.modulo, item.nivel);
+          if (chavesVistas[chave]) return false;
+          chavesVistas[chave] = true;
+
+          if (item.status === "ocupado") {
+            if (
+              !item.produto ||
+              typeof item.produto !== "object" ||
+              typeof item.produto.sku !== "string" ||
+              item.produto.sku.trim() === "" ||
+              typeof item.produto.nome !== "string" ||
+              item.produto.nome.trim() === "" ||
+              !Number.isInteger(item.produto.quantidade) ||
+              item.produto.quantidade <= 0
+            ) {
+              return false;
+            }
+          } else {
+            if (item.produto !== null) {
+              return false;
+            }
+          }
+        }
+        return Object.keys(chavesVistas).length === TOTAL_POSICOES_ESPERADO;
+      }
+
+      function carregarEstado() {
+        try {
+          var salvo = localStorage.getItem(CHAVE_STORAGE);
+          if (salvo) {
+            var convertido = JSON.parse(salvo);
+            if (validarListaPosicoes(convertido)) {
+              estado.posicoes = convertido;
+              return;
+            }
+          }
+        } catch (erro) {
+          // Caso haja erro de leitura ou JSON corrompido, reinicializa com segurança
+        }
+        estado.posicoes = criarPosicoesIniciais();
+        salvarEstado();
+      }
+
+      function salvarEstado() {
+        try {
+          localStorage.setItem(CHAVE_STORAGE, JSON.stringify(estado.posicoes));
+        } catch (erro) {
+          // Mantém operação em memória caso o armazenamento esteja indisponível
+        }
+      }
+
+      function buscarPosicao(rua, modulo, nivel) {
+        var nivelNum = Number(nivel);
+        for (var i = 0; i < estado.posicoes.length; i++) {
+          var p = estado.posicoes[i];
+          if (p.rua === rua && p.modulo === modulo && p.nivel === nivelNum) {
+            return p;
+          }
+        }
+        return null;
+      }
+
+      function buscarPosicaoPorChave(chave) {
+        if (!chave) return null;
+        var partes = chave.split("-");
+        if (partes.length !== 3) return null;
+        return buscarPosicao(partes[0], partes[1], Number(partes[2]));
+      }
+
+      /* ========================================================================
+         Exibição de Mensagens de Feedback (Erro / Sucesso)
+         ======================================================================== */
+      function exibirFeedback(elemento, tipo, mensagem) {
+        elemento.textContent = mensagem;
+        elemento.className = "mensagem-feedback " + (tipo === "erro" ? "mensagem-erro" : "mensagem-sucesso");
+      }
+
+      function limparFeedback(elemento) {
+        elemento.textContent = "";
+        elemento.className = "mensagem-feedback oculto";
+      }
+
+      /* ========================================================================
+         Regras de Negócio e Validações (Impossíveis de Contornar)
+         ======================================================================== */
+      function calcularIndicadores() {
+        var livres = 0;
+        var ocupadas = 0;
+        var indisponiveis = 0;
+
+        for (var i = 0; i < estado.posicoes.length; i++) {
+          var st = estado.posicoes[i].status;
+          if (st === "livre") {
+            livres++;
+          } else if (st === "ocupado") {
+            ocupadas++;
+          } else if (st === "indisponivel") {
+            indisponiveis++;
+          }
+        }
+
+        var total = estado.posicoes.length;
+        var percentualOcupacao = total > 0 ? (ocupadas / total) * 100 : 0;
+        var percentualIndisp = total > 0 ? (indisponiveis / total) * 100 : 0;
+        var percentualLivre = total > 0 ? (livres / total) * 100 : 0;
+
+        return {
+          total: total,
+          livres: livres,
+          ocupadas: ocupadas,
+          indisponiveis: indisponiveis,
+          percentualOcupacao: percentualOcupacao,
+          percentualIndisp: percentualIndisp,
+          percentualLivre: percentualLivre
+        };
+      }
+
+      function validarQuantidadeInteiraPositiva(valorBruto) {
+        var texto = String(valorBruto === undefined || valorBruto === null ? "" : valorBruto).trim();
+        if (!/^\d+$/.test(texto)) {
+          return { valido: false, valor: null };
+        }
+        var numero = Number(texto);
+        if (!Number.isSafeInteger(numero) || numero <= 0) {
+          return { valido: false, valor: null };
+        }
+        return { valido: true, valor: numero };
+      }
+
+      function registrarEntrada(dados) {
+        var skuLimpo = String(dados.sku || "").trim();
+        var nomeLimpo = String(dados.nome || "").trim();
+        var rua = String(dados.rua || "");
+        var modulo = String(dados.modulo || "");
+        var nivel = Number(dados.nivel);
+
+        if (skuLimpo.length === 0) {
+          return { sucesso: false, mensagem: "Informe o código/SKU do produto." };
+        }
+        if (nomeLimpo.length === 0) {
+          return { sucesso: false, mensagem: "Informe o nome do produto." };
+        }
+
+        var validacaoQtd = validarQuantidadeInteiraPositiva(dados.quantidade);
+        if (!validacaoQtd.valido) {
+          return { sucesso: false, mensagem: "A quantidade deve ser um número inteiro positivo maior que zero." };
+        }
+
+        if (RUAS.indexOf(rua) === -1 || MODULOS.indexOf(modulo) === -1 || NIVEIS.indexOf(nivel) === -1) {
+          return { sucesso: false, mensagem: "Endereço de destino inválido." };
+        }
+
+        var posicao = buscarPosicao(rua, modulo, nivel);
+        if (!posicao) {
+          return { sucesso: false, mensagem: "Posição de destino não encontrada no armazém." };
+        }
+
+        var endereco = formatarEndereco(posicao);
+
+        if (posicao.status === "ocupado") {
+          return {
+            sucesso: false,
+            mensagem: "Entrada bloqueada: a posição " + endereco + " já está ocupada pelo SKU " + posicao.produto.sku + " (" + posicao.produto.nome + ")."
+          };
+        }
+
+        if (posicao.status === "indisponivel") {
+          return {
+            sucesso: false,
+            mensagem: "Entrada bloqueada: a posição " + endereco + " está marcada como indisponível."
+          };
+        }
+
+        if (posicao.status !== "livre") {
+          return {
+            sucesso: false,
+            mensagem: "Entrada bloqueada: a posição " + endereco + " não está livre."
+          };
+        }
+
+        posicao.status = "ocupado";
+        posicao.produto = {
+          sku: skuLimpo,
+          nome: nomeLimpo,
+          quantidade: validacaoQtd.valor
+        };
+
+        salvarEstado();
+        estado.selecionadaChave = gerarChavePosicao(posicao.rua, posicao.modulo, posicao.nivel);
+
+        return {
+          sucesso: true,
+          mensagem: "Entrada registrada em " + endereco + " (" + skuLimpo + ", qtd. " + validacaoQtd.valor + ")."
+        };
+      }
+
+      function alternarIndisponibilidade(rua, modulo, nivel) {
+        var posicao = buscarPosicao(rua, modulo, nivel);
+        if (!posicao) {
+          return { sucesso: false, mensagem: "Posição não encontrada." };
+        }
+
+        var endereco = formatarEndereco(posicao);
+
+        if (posicao.status === "ocupado") {
+          return {
+            sucesso: false,
+            mensagem: "Ação não permitida: " + endereco + " está ocupada. Registre a saída da mercadoria antes de marcá-la como indisponível."
+          };
+        }
+
+        if (posicao.status === "livre") {
+          posicao.status = "indisponivel";
+          posicao.produto = null;
+          salvarEstado();
+          return {
+            sucesso: true,
+            mensagem: "Posição " + endereco + " marcada como indisponível."
+          };
+        }
+
+        if (posicao.status === "indisponivel") {
+          posicao.status = "livre";
+          posicao.produto = null;
+          salvarEstado();
+          return {
+            sucesso: true,
+            mensagem: "Posição " + endereco + " reativada como livre."
+          };
+        }
+
+        return { sucesso: false, mensagem: "Status inválido para alteração." };
+      }
+
+      function executarSaida(rua, modulo, nivel) {
+        var posicao = buscarPosicao(rua, modulo, nivel);
+        if (!posicao) {
+          return { sucesso: false, mensagem: "Posição não encontrada." };
+        }
+
+        var endereco = formatarEndereco(posicao);
+        if (posicao.status !== "ocupado" || !posicao.produto) {
+          return {
+            sucesso: false,
+            mensagem: "Não há mercadoria armazenada em " + endereco + " para dar baixa."
+          };
+        }
+
+        var produtoRemovido = posicao.produto;
+        posicao.status = "livre";
+        posicao.produto = null;
+        salvarEstado();
+
+        return {
+          sucesso: true,
+          mensagem: "Saída registrada: " + produtoRemovido.sku + " (" + produtoRemovido.quantidade + " un.) removido de " + endereco + ". Posição agora está livre."
+        };
+      }
+
+      /* ========================================================================
+         Busca e Consulta de Produtos
+         ======================================================================== */
+      function obterResultadosBusca(termo) {
+        var consulta = String(termo || "").trim().toLowerCase();
+        if (!consulta) {
+          return [];
+        }
+
+        var encontrados = [];
+        for (var i = 0; i < estado.posicoes.length; i++) {
+          var p = estado.posicoes[i];
+          if (p.status === "ocupado" && p.produto) {
+            var skuLower = p.produto.sku.toLowerCase();
+            var nomeLower = p.produto.nome.toLowerCase();
+            if (skuLower.indexOf(consulta) !== -1 || nomeLower.indexOf(consulta) !== -1) {
+              encontrados.push(p);
+            }
+          }
+        }
+        return encontrados;
+      }
+
+      /* ========================================================================
+         Renderização da Interface
+         ======================================================================== */
+      function renderizarDashboard() {
+        var ind = calcularIndicadores();
+
+        el.kpiPercentual.textContent = formatarNumeroPercentual(ind.percentualOcupacao);
+        el.kpiOcupacaoFracao.textContent = ind.ocupadas + " de " + ind.total;
+        el.kpiLivres.textContent = String(ind.livres);
+        el.kpiOcupadas.textContent = String(ind.ocupadas);
+        el.kpiIndisponiveis.textContent = String(ind.indisponiveis);
+
+        var pctOcupadoCss = ind.percentualOcupacao.toFixed(2) + "%";
+        var pctIndispCss = ind.percentualIndisp.toFixed(2) + "%";
+
+        el.barraOcupado.style.width = pctOcupadoCss;
+        el.barraIndisponivel.style.width = pctIndispCss;
+        el.barraTrilha.setAttribute("aria-valuenow", String(Math.round(ind.percentualOcupacao)));
+
+        el.progressoLegenda.textContent =
+          formatarNumeroPercentual(ind.percentualOcupacao) + " ocupado · " +
+          formatarNumeroPercentual(ind.percentualIndisp) + " indisponível · " +
+          formatarNumeroPercentual(ind.percentualLivre) + " livre";
+      }
+
+      function renderizarMapa() {
+        var resultadosBusca = obterResultadosBusca(estado.termoBusca);
+        var chavesDestacadas = {};
+        for (var i = 0; i < resultadosBusca.length; i++) {
+          var item = resultadosBusca[i];
+          chavesDestacadas[gerarChavePosicao(item.rua, item.modulo, item.nivel)] = true;
+        }
+
+        var ruasParaExibir = estado.ruaFiltroMapa === "TODAS" ? RUAS : [estado.ruaFiltroMapa];
+        el.mapaContainer.className = "mapa-grade-ruas" + (ruasParaExibir.length === 1 ? " rua-unica" : "");
+
+        var fragmento = document.createDocumentFragment();
+        var totalExibidas = 0;
+
+        for (var r = 0; r < ruasParaExibir.length; r++) {
+          var rua = ruasParaExibir[r];
+          var blocoRua = criarElementoTexto("section", "bloco-rua");
+          blocoRua.setAttribute("aria-label", "Rua " + rua);
+
+          var livresRua = 0;
+          var ocupadasRua = 0;
+          var indispRua = 0;
+
+          for (var idx = 0; idx < estado.posicoes.length; idx++) {
+            var posAtual = estado.posicoes[idx];
+            if (posAtual.rua === rua) {
+              if (posAtual.status === "livre") livresRua++;
+              else if (posAtual.status === "ocupado") ocupadasRua++;
+              else if (posAtual.status === "indisponivel") indispRua++;
+            }
+          }
+
+          var cabecalhoRua = criarElementoTexto("div", "rua-cabecalho");
+          var tituloRua = criarElementoTexto("span", "rua-nome", "Rua " + rua);
+          var resumoRua = criarElementoTexto(
+            "span",
+            "rua-resumo tabular-nums",
+            ocupadasRua + " ocup. · " + livresRua + " livres · " + indispRua + " indisp."
+          );
+          cabecalhoRua.appendChild(tituloRua);
+          cabecalhoRua.appendChild(resumoRua);
+          blocoRua.appendChild(cabecalhoRua);
+
+          var gradeModulos = criarElementoTexto("div", "rua-modulos");
+
+          for (var m = 0; m < MODULOS.length; m++) {
+            var modulo = MODULOS[m];
+            var colModulo = criarElementoTexto("div", "coluna-modulo");
+            var labelModulo = criarElementoTexto("div", "modulo-titulo mono", modulo);
+            colModulo.appendChild(labelModulo);
+
+            // Renderiza do nível 5 (topo) até o nível 1 (piso)
+            for (var n = NIVEIS.length - 1; n >= 0; n--) {
+              var nivel = NIVEIS[n];
+              var posicao = buscarPosicao(rua, modulo, nivel);
+              var chave = gerarChavePosicao(rua, modulo, nivel);
+              var endereco = formatarEndereco(posicao);
+              totalExibidas++;
+
+              var classes = ["posicao-btn", "posicao-" + posicao.status];
+              if (estado.selecionadaChave === chave) {
+                classes.push("posicao-selecionada");
+              }
+              if (chavesDestacadas[chave]) {
+                classes.push("posicao-destacada");
+              }
+
+              var btnPos = document.createElement("button");
+              btnPos.type = "button";
+              btnPos.className = classes.join(" ");
+              btnPos.setAttribute("data-chave", chave);
+
+              var textoStatus = formatarStatusRotulo(posicao.status);
+              var descricaoAcessivel = endereco + " — " + textoStatus;
+              if (posicao.status === "ocupado" && posicao.produto) {
+                descricaoAcessivel += " — " + posicao.produto.sku + ": " + posicao.produto.nome + " (" + posicao.produto.quantidade + " un.)";
+              }
+              btnPos.setAttribute("aria-label", descricaoAcessivel);
+              btnPos.title = descricaoAcessivel;
+
+              var spanNivel = criarElementoTexto("span", "posicao-nivel mono", "N" + nivel);
+              btnPos.appendChild(spanNivel);
+
+              var textoSigla = "Livre";
+              if (posicao.status === "ocupado" && posicao.produto) {
+                textoSigla = posicao.produto.sku;
+              } else if (posicao.status === "indisponivel") {
+                textoSigla = "Indisp.";
+              }
+              var spanSigla = criarElementoTexto("span", "posicao-sigla", textoSigla);
+              btnPos.appendChild(spanSigla);
+
+              btnPos.addEventListener("click", (function (chaveAlvo) {
+                return function () {
+                  selecionarPosicao(chaveAlvo);
+                };
+              })(chave));
+
+              colModulo.appendChild(btnPos);
+            }
+
+            gradeModulos.appendChild(colModulo);
+          }
+
+          blocoRua.appendChild(gradeModulos);
+          fragmento.appendChild(blocoRua);
+        }
+
+        el.mapaContainer.innerHTML = "";
+        el.mapaContainer.appendChild(fragmento);
+        el.mapaContadorExibidas.textContent = "Exibindo " + totalExibidas + " de " + TOTAL_POSICOES_ESPERADO + " posições";
+      }
+
+      function renderizarDetalhePosicao() {
+        var posicao = buscarPosicaoPorChave(estado.selecionadaChave);
+        el.painelDetalheConteudo.innerHTML = "";
+
+        if (!posicao) {
+          var aviso = criarElementoTexto(
+            "div",
+            "detalhe-vazio",
+            "Selecione uma posição no mapa para visualizar endereço completo, status, produto armazenado e opções de bloqueio/desbloqueio."
+          );
+          el.painelDetalheConteudo.appendChild(aviso);
+          return;
+        }
+
+        var endereco = formatarEndereco(posicao);
+        var tituloEnd = criarElementoTexto("div", "detalhe-endereco mono", endereco);
+        el.painelDetalheConteudo.appendChild(tituloEnd);
+
+        var dl = document.createElement("dl");
+        dl.className = "detalhe-lista";
+
+        dl.appendChild(criarElementoTexto("dt", "", "Localização"));
+        dl.appendChild(criarElementoTexto("dd", "", "Rua " + posicao.rua + " · Módulo " + posicao.modulo + " · Nível " + posicao.nivel + (posicao.nivel === 1 ? " (Piso)" : posicao.nivel === 5 ? " (Topo)" : "")));
+
+        dl.appendChild(criarElementoTexto("dt", "", "Status"));
+        dl.appendChild(criarElementoTexto("dd", "status-texto-" + posicao.status, formatarStatusRotulo(posicao.status)));
+
+        if (posicao.status === "ocupado" && posicao.produto) {
+          dl.appendChild(criarElementoTexto("dt", "", "SKU"));
+          dl.appendChild(criarElementoTexto("dd", "mono", posicao.produto.sku));
+
+          dl.appendChild(criarElementoTexto("dt", "", "Produto"));
+          dl.appendChild(criarElementoTexto("dd", "", posicao.produto.nome));
+
+          dl.appendChild(criarElementoTexto("dt", "", "Quantidade"));
+          dl.appendChild(criarElementoTexto("dd", "tabular-nums", posicao.produto.quantidade + " unidade(s)"));
+        } else {
+          dl.appendChild(criarElementoTexto("dt", "", "Produto"));
+          dl.appendChild(
+            criarElementoTexto(
+              "dd",
+              "",
+              posicao.status === "livre" ? "Nenhum produto armazenado" : "Bloqueada para armazenagem"
+            )
+          );
+        }
+
+        el.painelDetalheConteudo.appendChild(dl);
+
+        var acoes = criarElementoTexto("div", "detalhe-acoes");
+
+        if (posicao.status === "livre") {
+          var btnUsarEntrada = criarElementoTexto("button", "btn btn-primario btn-pequeno", "Usar na Entrada");
+          btnUsarEntrada.type = "button";
+          btnUsarEntrada.addEventListener("click", function () {
+            preencherDestinoEntrada(posicao);
+          });
+          acoes.appendChild(btnUsarEntrada);
+
+          var btnMarcarIndisp = criarElementoTexto("button", "btn btn-secundario btn-pequeno", "Marcar como Indisponível");
+          btnMarcarIndisp.type = "button";
+          btnMarcarIndisp.addEventListener("click", function () {
+            var res = alternarIndisponibilidade(posicao.rua, posicao.modulo, posicao.nivel);
+            exibirFeedback(el.feedbackDetalhe, res.sucesso ? "sucesso" : "erro", res.mensagem);
+            renderizarTudo();
+          });
+          acoes.appendChild(btnMarcarIndisp);
+        } else if (posicao.status === "indisponivel") {
+          var btnDesmarcar = criarElementoTexto("button", "btn btn-sucesso btn-pequeno", "Reativar (Marcar como Livre)");
+          btnDesmarcar.type = "button";
+          btnDesmarcar.addEventListener("click", function () {
+            var res = alternarIndisponibilidade(posicao.rua, posicao.modulo, posicao.nivel);
+            exibirFeedback(el.feedbackDetalhe, res.sucesso ? "sucesso" : "erro", res.mensagem);
+            renderizarTudo();
+          });
+          acoes.appendChild(btnDesmarcar);
+        } else if (posicao.status === "ocupado") {
+          var btnBaixa = criarElementoTexto("button", "btn btn-perigo btn-pequeno", "Registrar Saída (Picking)");
+          btnBaixa.type = "button";
+          btnBaixa.addEventListener("click", function () {
+            abrirModalConfirmacaoSaida(posicao);
+          });
+          acoes.appendChild(btnBaixa);
+
+          var btnBloqueado = criarElementoTexto("button", "btn btn-secundario btn-pequeno", "Marcar como Indisponível");
+          btnBloqueado.type = "button";
+          btnBloqueado.addEventListener("click", function () {
+            var res = alternarIndisponibilidade(posicao.rua, posicao.modulo, posicao.nivel);
+            exibirFeedback(el.feedbackDetalhe, "erro", res.mensagem);
+          });
+          acoes.appendChild(btnBloqueado);
+        }
+
+        el.painelDetalheConteudo.appendChild(acoes);
+      }
+
+      function renderizarBusca() {
+        var termo = estado.termoBusca.trim();
+        el.buscaResultados.innerHTML = "";
+
+        if (!termo) {
+          el.buscaResumo.textContent = "Digite um código SKU ou nome do produto para localizar no mapa.";
+          return;
+        }
+
+        var encontrados = obterResultadosBusca(termo);
+        if (encontrados.length === 0) {
+          el.buscaResumo.textContent = "Nenhum produto encontrado para \"" + termo + "\".";
+          return;
+        }
+
+        el.buscaResumo.textContent = encontrados.length + (encontrados.length === 1 ? " posição encontrada e destacada no mapa:" : " posições encontradas e destacadas no mapa:");
+
+        var frag = document.createDocumentFragment();
+        for (var i = 0; i < encontrados.length; i++) {
+          var p = encontrados[i];
+          var item = criarElementoTexto("div", "resultado-item");
+          var info = criarElementoTexto("div", "resultado-info");
+
+          var linhaProd = criarElementoTexto("div", "resultado-produto", p.produto.sku + " — " + p.produto.nome);
+          var linhaMeta = criarElementoTexto("div", "resultado-meta mono", formatarEndereco(p) + " · Qtd: " + p.produto.quantidade);
+
+          info.appendChild(linhaProd);
+          info.appendChild(linhaMeta);
+
+          var btnFocar = criarElementoTexto("button", "btn btn-secundario btn-pequeno", "Ver no Mapa");
+          btnFocar.type = "button";
+          btnFocar.addEventListener("click", (function (pos) {
+            return function () {
+              focarPosicaoNoMapa(pos);
+            };
+          })(p));
+
+          item.appendChild(info);
+          item.appendChild(btnFocar);
+          frag.appendChild(item);
+        }
+        el.buscaResultados.appendChild(frag);
+      }
+
+      function renderizarAvisoDestinoEntrada() {
+        var rua = el.entradaRua.value;
+        var modulo = el.entradaModulo.value;
+        var nivel = Number(el.entradaNivel.value);
+        var pos = buscarPosicao(rua, modulo, nivel);
+
+        if (!pos) {
+          el.avisoDestinoEntrada.className = "status-destino-aviso aviso-bloqueado";
+          el.avisoDestinoEntrada.textContent = "Endereço inválido.";
+          return;
+        }
+
+        var endereco = formatarEndereco(pos);
+        if (pos.status === "livre") {
+          el.avisoDestinoEntrada.className = "status-destino-aviso aviso-livre";
+          el.avisoDestinoEntrada.textContent = endereco + " está livre e pronta para receber mercadoria.";
+        } else if (pos.status === "ocupado" && pos.produto) {
+          el.avisoDestinoEntrada.className = "status-destino-aviso aviso-bloqueado";
+          el.avisoDestinoEntrada.textContent = endereco + " está ocupada por " + pos.produto.sku + " (" + pos.produto.nome + "). Escolha outra posição.";
+        } else {
+          el.avisoDestinoEntrada.className = "status-destino-aviso aviso-bloqueado";
+          el.avisoDestinoEntrada.textContent = endereco + " está marcada como indisponível. Escolha outra posição.";
+        }
+      }
+
+      function renderizarListaSaida() {
+        var ocupadas = [];
+        var filtro = estado.termoFiltroSaida.trim().toLowerCase();
+
+        for (var i = 0; i < estado.posicoes.length; i++) {
+          var p = estado.posicoes[i];
+          if (p.status === "ocupado" && p.produto) {
+            if (!filtro) {
+              ocupadas.push(p);
+            } else {
+              var endLower = formatarEndereco(p).toLowerCase();
+              var skuLower = p.produto.sku.toLowerCase();
+              var nomeLower = p.produto.nome.toLowerCase();
+              if (endLower.indexOf(filtro) !== -1 || skuLower.indexOf(filtro) !== -1 || nomeLower.indexOf(filtro) !== -1) {
+                ocupadas.push(p);
+              }
+            }
+          }
+        }
+
+        el.listaSaida.innerHTML = "";
+
+        if (ocupadas.length === 0) {
+          var vazio = criarElementoTexto(
+            "div",
+            "detalhe-vazio",
+            filtro
+              ? "Nenhuma posição ocupada corresponde ao filtro informado."
+              : "Nenhuma posição ocupada no momento. Registre uma entrada para armazenar produtos."
+          );
+          el.listaSaida.appendChild(vazio);
+          return;
+        }
+
+        var frag = document.createDocumentFragment();
+        for (var j = 0; j < ocupadas.length; j++) {
+          var pos = ocupadas[j];
+          var card = criarElementoTexto("div", "picking-item");
+          var dados = criarElementoTexto("div", "picking-dados");
+
+          var endEl = criarElementoTexto("div", "picking-endereco mono", formatarEndereco(pos));
+          var prodEl = criarElementoTexto(
+            "div",
+            "picking-produto",
+            pos.produto.sku + " — " + pos.produto.nome + " (Qtd: " + pos.produto.quantidade + ")"
+          );
+
+          dados.appendChild(endEl);
+          dados.appendChild(prodEl);
+
+          var btnBaixa = criarElementoTexto("button", "btn btn-perigo btn-pequeno", "Dar Baixa");
+          btnBaixa.type = "button";
+          btnBaixa.addEventListener("click", (function (alvo) {
+            return function () {
+              abrirModalConfirmacaoSaida(alvo);
+            };
+          })(pos));
+
+          card.appendChild(dados);
+          card.appendChild(btnBaixa);
+          frag.appendChild(card);
+        }
+
+        el.listaSaida.appendChild(frag);
+      }
+
+      function renderizarTudo() {
+        renderizarDashboard();
+        renderizarMapa();
+        renderizarDetalhePosicao();
+        renderizarBusca();
+        renderizarAvisoDestinoEntrada();
+        renderizarListaSaida();
+      }
+
+      /* ========================================================================
+         Ações de Navegação, Seleção e Modais
+         ======================================================================== */
+      function selecionarPosicao(chave) {
+        estado.selecionadaChave = chave;
+        limparFeedback(el.feedbackDetalhe);
+        renderizarMapa();
+        renderizarDetalhePosicao();
+      }
+
+      function focarPosicaoNoMapa(posicao) {
+        var chave = gerarChavePosicao(posicao.rua, posicao.modulo, posicao.nivel);
+        if (estado.ruaFiltroMapa !== "TODAS" && estado.ruaFiltroMapa !== posicao.rua) {
+          estado.ruaFiltroMapa = "TODAS";
+          atualizarBotoesFiltroRua();
+        }
+        estado.selecionadaChave = chave;
+        limparFeedback(el.feedbackDetalhe);
+        renderizarMapa();
+        renderizarDetalhePosicao();
+
+        var botaoMapa = el.mapaContainer.querySelector('[data-chave="' + chave + '"]');
+        if (botaoMapa && typeof botaoMapa.scrollIntoView === "function") {
+          botaoMapa.scrollIntoView({ behavior: "smooth", block: "center" });
+          botaoMapa.focus();
+        }
+      }
+
+      function preencherDestinoEntrada(posicao) {
+        alternarAba("entrada");
+        el.entradaRua.value = posicao.rua;
+        el.entradaModulo.value = posicao.modulo;
+        el.entradaNivel.value = String(posicao.nivel);
+        renderizarAvisoDestinoEntrada();
+        limparFeedback(el.feedbackEntrada);
+        el.entradaSku.focus();
+      }
+
+      function alternarAba(nomeAba) {
+        estado.abaAtiva = nomeAba;
+        var ehEntrada = nomeAba === "entrada";
+
+        el.abaEntrada.classList.toggle("ativa", ehEntrada);
+        el.abaEntrada.setAttribute("aria-selected", ehEntrada ? "true" : "false");
+        el.painelEntrada.hidden = !ehEntrada;
+
+        el.abaSaida.classList.toggle("ativa", !ehEntrada);
+        el.abaSaida.setAttribute("aria-selected", !ehEntrada ? "true" : "false");
+        el.painelSaida.hidden = ehEntrada;
+      }
+
+      function atualizarBotoesFiltroRua() {
+        var botoes = el.filtroRuas.querySelectorAll(".btn-filtro-rua");
+        for (var i = 0; i < botoes.length; i++) {
+          var btn = botoes[i];
+          btn.classList.toggle("ativo", btn.getAttribute("data-rua") === estado.ruaFiltroMapa);
+        }
+      }
+
+      function abrirModalConfirmacaoSaida(posicao) {
+        if (!posicao || posicao.status !== "ocupado" || !posicao.produto) {
+          return;
+        }
+        el.modalTitulo.textContent = "Confirmar Saída de Mercadoria (Picking)";
+        el.modalTexto.textContent = "Deseja confirmar a baixa deste item? Após a confirmação, a posição voltará a ficar livre.";
+        el.modalBtnConfirmar.textContent = "Confirmar Saída";
+
+        el.modalResumo.innerHTML = "";
+        var dl = document.createElement("dl");
+        dl.className = "detalhe-lista";
+        dl.style.marginBottom = "0";
+
+        dl.appendChild(criarElementoTexto("dt", "", "Endereço"));
+        dl.appendChild(criarElementoTexto("dd", "mono", formatarEndereco(posicao)));
+        dl.appendChild(criarElementoTexto("dt", "", "SKU"));
+        dl.appendChild(criarElementoTexto("dd", "mono", posicao.produto.sku));
+        dl.appendChild(criarElementoTexto("dt", "", "Produto"));
+        dl.appendChild(criarElementoTexto("dd", "", posicao.produto.nome));
+        dl.appendChild(criarElementoTexto("dt", "", "Quantidade"));
+        dl.appendChild(criarElementoTexto("dd", "tabular-nums", posicao.produto.quantidade + " unidade(s)"));
+        el.modalResumo.appendChild(dl);
+
+        estado.acaoModalPendente = function () {
+          var res = executarSaida(posicao.rua, posicao.modulo, posicao.nivel);
+          exibirFeedback(el.feedbackSaida, res.sucesso ? "sucesso" : "erro", res.mensagem);
+          exibirFeedback(el.feedbackDetalhe, res.sucesso ? "sucesso" : "erro", res.mensagem);
+          renderizarTudo();
+        };
+
+        el.modalFundo.classList.remove("oculto");
+        el.modalBtnCancelar.focus();
+      }
+
+      function abrirModalConfirmacaoReiniciar() {
+        el.modalTitulo.textContent = "Reiniciar Todo o Armazém";
+        el.modalTexto.textContent = "Esta ação removerá todos os produtos armazenados e voltará todas as 150 posições para o status livre.";
+        el.modalBtnConfirmar.textContent = "Reiniciar Armazém";
+
+        el.modalResumo.innerHTML = "";
+        el.modalResumo.appendChild(
+          criarElementoTexto("div", "", "Total afetado: 150 posições (Ruas A a F, Módulos P01 a P05, Níveis 1 a 5).")
+        );
+
+        estado.acaoModalPendente = function () {
+          estado.posicoes = criarPosicoesIniciais();
+          estado.selecionadaChave = null;
+          estado.termoBusca = "";
+          estado.termoFiltroSaida = "";
+          el.inputBusca.value = "";
+          el.filtroSaida.value = "";
+          salvarEstado();
+          limparFeedback(el.feedbackDetalhe);
+          limparFeedback(el.feedbackEntrada);
+          limparFeedback(el.feedbackSaida);
+          renderizarTudo();
+        };
+
+        el.modalFundo.classList.remove("oculto");
+        el.modalBtnCancelar.focus();
+      }
+
+      function fecharModal() {
+        estado.acaoModalPendente = null;
+        el.modalFundo.classList.add("oculto");
+      }
+
+      /* ========================================================================
+         Preenchimento dos Dropdowns e Registro de Eventos
+         ======================================================================== */
+      function popularDropdownsEntrada() {
+        el.entradaRua.innerHTML = "";
+        for (var r = 0; r < RUAS.length; r++) {
+          var optR = document.createElement("option");
+          optR.value = RUAS[r];
+          optR.textContent = "Rua " + RUAS[r];
+          el.entradaRua.appendChild(optR);
+        }
+
+        el.entradaModulo.innerHTML = "";
+        for (var m = 0; m < MODULOS.length; m++) {
+          var optM = document.createElement("option");
+          optM.value = MODULOS[m];
+          optM.textContent = MODULOS[m];
+          el.entradaModulo.appendChild(optM);
+        }
+
+        el.entradaNivel.innerHTML = "";
+        for (var n = 0; n < NIVEIS.length; n++) {
+          var nivel = NIVEIS[n];
+          var optN = document.createElement("option");
+          optN.value = String(nivel);
+          optN.textContent = "N" + nivel + (nivel === 1 ? " (Piso)" : nivel === 5 ? " (Topo)" : "");
+          el.entradaNivel.appendChild(optN);
+        }
+      }
+
+      function registrarEventos() {
+        // Filtro por rua no mapa
+        el.filtroRuas.addEventListener("click", function (evento) {
+          var alvo = evento.target.closest(".btn-filtro-rua");
+          if (!alvo) return;
+          estado.ruaFiltroMapa = alvo.getAttribute("data-rua");
+          atualizarBotoesFiltroRua();
+          renderizarMapa();
+        });
+
+        // Atalho de cabeçalho para Nova Entrada
+        el.btnAtalhoEntrada.addEventListener("click", function () {
+          alternarAba("entrada");
+          el.formEntrada.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.entradaSku.focus();
+        });
+
+        // Abas Entrada / Saída
+        el.abaEntrada.addEventListener("click", function () {
+          alternarAba("entrada");
+        });
+
+        el.abaSaida.addEventListener("click", function () {
+          alternarAba("saida");
+        });
+
+        // Atualização de aviso de destino ao trocar dropdowns
+        el.entradaRua.addEventListener("change", renderizarAvisoDestinoEntrada);
+        el.entradaModulo.addEventListener("change", renderizarAvisoDestinoEntrada);
+        el.entradaNivel.addEventListener("change", renderizarAvisoDestinoEntrada);
+
+        // Submissão do formulário de Entrada (Putaway)
+        el.formEntrada.addEventListener("submit", function (evento) {
+          evento.preventDefault();
+          var resultado = registrarEntrada({
+            sku: el.entradaSku.value,
+            nome: el.entradaNome.value,
+            quantidade: el.entradaQuantidade.value,
+            rua: el.entradaRua.value,
+            modulo: el.entradaModulo.value,
+            nivel: el.entradaNivel.value
+          });
+
+          exibirFeedback(el.feedbackEntrada, resultado.sucesso ? "sucesso" : "erro", resultado.mensagem);
+
+          if (resultado.sucesso) {
+            el.entradaSku.value = "";
+            el.entradaNome.value = "";
+            el.entradaQuantidade.value = "";
+            renderizarTudo();
+            el.entradaSku.focus();
+          }
+        });
+
+        // Consulta e busca
+        el.formBusca.addEventListener("submit", function (evento) {
+          evento.preventDefault();
+          estado.termoBusca = el.inputBusca.value;
+          renderizarMapa();
+          renderizarBusca();
+        });
+
+        el.inputBusca.addEventListener("input", function () {
+          estado.termoBusca = el.inputBusca.value;
+          renderizarMapa();
+          renderizarBusca();
+        });
+
+        el.btnLimparBusca.addEventListener("click", function () {
+          estado.termoBusca = "";
+          el.inputBusca.value = "";
+          renderizarMapa();
+          renderizarBusca();
+          el.inputBusca.focus();
+        });
+
+        // Filtro da lista de Saída (Picking)
+        el.filtroSaida.addEventListener("input", function () {
+          estado.termoFiltroSaida = el.filtroSaida.value;
+          renderizarListaSaida();
+        });
+
+        // Reiniciar armazém
+        el.btnReiniciarArmazem.addEventListener("click", abrirModalConfirmacaoReiniciar);
+
+        // Eventos do Modal
+        el.modalBtnCancelar.addEventListener("click", fecharModal);
+
+        el.modalBtnConfirmar.addEventListener("click", function () {
+          var acao = estado.acaoModalPendente;
+          fecharModal();
+          if (typeof acao === "function") {
+            acao();
+          }
+        });
+
+        el.modalFundo.addEventListener("click", function (evento) {
+          if (evento.target === el.modalFundo) {
+            fecharModal();
+          }
+        });
+
+        document.addEventListener("keydown", function (evento) {
+          if (evento.key === "Escape" && !el.modalFundo.classList.contains("oculto")) {
+            fecharModal();
+          }
+        });
+      }
+
+      /* ========================================================================
+         Inicialização da Aplicação
+         ======================================================================== */
+      carregarEstado();
+      popularDropdownsEntrada();
+      registrarEventos();
+      renderizarTudo();
+    })();
+  </script>
+</body>
+</html>

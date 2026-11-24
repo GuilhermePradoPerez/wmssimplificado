@@ -1,0 +1,6 @@
+{
+  "name": "WMS Simplificado",
+  "description": "Sistema de gerenciamento de armazém com mapa visual de 150 posições, entrada (putaway), saída (picking), busca e indicadores em tempo real.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
